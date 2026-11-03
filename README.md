@@ -79,14 +79,20 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 | --- | --- | --- |
 | `opencodeGo.baseUrl` | `https://opencode.ai/inference/go` | OpenCode API base URL. Use `https://opencode.ai/inference` for a pay-as-you-go (Zen) key. |
 | `opencodeGo.includeFreeModels` | `false` | Show free-tier models that are usually limited to the OpenCode client. |
+| `opencodeGo.contextWindowTokens` | `0` | Maximum context window (input + output) reported to VS Code. `0` uses each model's native window. |
+| `opencodeGo.reasoningEffort` | `auto` | Reasoning effort for models that support it: `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
+
+The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above or the commands below to change them globally.
 
 ## Commands
 
 - **OpenCode Go: Set API Key**
 - **OpenCode Go: Clear API Key**
 - **OpenCode Go: Refresh Models**
+- **OpenCode Go: Set Reasoning Effort**
+- **OpenCode Go: Set Max Context Window**
 
-The commands are a fallback for VS Code versions that do not render the native provider configuration UI.
+The API key commands are a fallback for VS Code versions that do not render the native provider configuration UI.
 
 ## Troubleshooting
 

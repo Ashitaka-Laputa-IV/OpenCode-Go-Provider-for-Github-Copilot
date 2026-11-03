@@ -159,6 +159,7 @@ function safeModelOptions(options: Record<string, unknown> | undefined): Record<
     "stop",
     "presence_penalty",
     "frequency_penalty",
+    "reasoning_effort",
   ];
   const result: Record<string, unknown> = {};
   for (const key of allowed) {

@@ -10,11 +10,13 @@ import {
   toChatInformation,
   VENDOR,
   type ModelCatalog,
+  type OpenCodeModel,
 } from "./models";
 import { sessionIdFor, sessionSeed } from "./session";
 
 const SECRET_KEY = "opencodeGo.apiKey";
 const CONFIG_SECTION = "opencodeGo";
+const REASONING_EFFORTS = ["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 interface ProviderConfiguration {
   apiKey?: unknown;
@@ -45,6 +47,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private readonly userAgent: string;
   private catalog: ModelCatalog | undefined;
   private cachedApiKey: string | undefined;
+  private readonly modelMetadata = new Map<string, OpenCodeModel>();
 
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
 
@@ -80,7 +83,11 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       visible: unique.length,
       baseUrl: this.getBaseUrl(),
     });
-    return unique.map(toChatInformation);
+    this.modelMetadata.clear();
+    for (const model of unique) {
+      this.modelMetadata.set(model.id, model);
+    }
+    return unique.map((model) => toChatInformation(model, this.getContextWindowTokens()));
   }
 
   async provideLanguageModelChatResponse(
@@ -128,7 +135,10 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
         messages: converted,
         tools,
         toolChoice,
-        modelOptions: options.modelOptions as Record<string, unknown> | undefined,
+        modelOptions: this.requestModelOptions(
+          model.id,
+          options.modelOptions as Record<string, unknown> | undefined,
+        ),
         signal: abort.signal,
         onText: (text) => progress.report(new vscode.LanguageModelTextPart(text)),
         onToolCall: (call) =>
@@ -216,6 +226,53 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     this.cachedApiKey = undefined;
     this.changeEmitter.fire();
     void vscode.window.showInformationMessage("OpenCode Go API key cleared.");
+  }
+
+  async setReasoningEffort(): Promise<void> {
+    const configuration = vscode.workspace.getConfiguration(CONFIG_SECTION);
+    const current = configuration.get<string>("reasoningEffort", "auto");
+    const options = REASONING_EFFORTS.map((value) => ({
+      label: value,
+      description: value === current ? "Current setting" : undefined,
+    }));
+    const picked = await vscode.window.showQuickPick(options, {
+      title: "OpenCode Go: Reasoning Effort",
+      placeHolder: "Auto lets each model decide",
+    });
+    if (!picked) {
+      return;
+    }
+    await configuration.update("reasoningEffort", picked.label, vscode.ConfigurationTarget.Global);
+    void vscode.window.showInformationMessage(
+      `OpenCode Go reasoning effort set to "${picked.label}".`,
+    );
+  }
+
+  async setContextWindow(): Promise<void> {
+    const configuration = vscode.workspace.getConfiguration(CONFIG_SECTION);
+    const current = configuration.get<number>("contextWindowTokens", 0);
+    const value = await vscode.window.showInputBox({
+      title: "OpenCode Go: Max Context Window",
+      prompt: "Maximum context window (input + output) reported to VS Code. Use 0 for the model default.",
+      value: String(current),
+      ignoreFocusOut: true,
+      validateInput: (input) => {
+        const parsed = Number(input.trim());
+        return Number.isFinite(parsed) && parsed >= 0
+          ? undefined
+          : "Enter 0 or a positive number of tokens.";
+      },
+    });
+    if (value === undefined) {
+      return;
+    }
+    const parsed = Number(value.trim());
+    await configuration.update("contextWindowTokens", parsed, vscode.ConfigurationTarget.Global);
+    void vscode.window.showInformationMessage(
+      parsed === 0
+        ? "OpenCode Go now uses each model's native context window."
+        : `OpenCode Go context window capped at ${parsed.toLocaleString()} tokens.`,
+    );
   }
 
   refreshModels(notify = true): void {
@@ -340,6 +397,70 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
 
   private includeFreeModels(): boolean {
     return vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("includeFreeModels", false);
+  }
+
+  private getContextWindowTokens(): number {
+    const value = vscode.workspace
+      .getConfiguration(CONFIG_SECTION)
+      .get<number>("contextWindowTokens", 0);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+
+  private requestModelOptions(
+    modelId: string,
+    options: Record<string, unknown> | undefined,
+  ): Record<string, unknown> {
+    const merged = { ...(options ?? {}) };
+    const effort = this.resolveReasoningEffort(modelId);
+    if (effort) {
+      merged.reasoning_effort = effort;
+    }
+    return merged;
+  }
+
+  private resolveReasoningEffort(modelId: string): string | undefined {
+    const setting = vscode.workspace
+      .getConfiguration(CONFIG_SECTION)
+      .get<string>("reasoningEffort", "auto")
+      .trim()
+      .toLowerCase();
+    if (setting.length === 0 || setting === "auto") {
+      return undefined;
+    }
+
+    const model = this.modelMetadata.get(modelId);
+    if (!model) {
+      return undefined;
+    }
+    const reasoning = model.capabilities?.reasoning;
+    if (reasoning?.supported !== true) {
+      return undefined;
+    }
+
+    const supported = (reasoning.effort ?? []).map((effort) => effort.toLowerCase());
+    if (supported.length === 0) {
+      return setting;
+    }
+    if (supported.includes(setting)) {
+      return setting;
+    }
+    if (setting === "none") {
+      return undefined;
+    }
+
+    const order = ["minimal", "low", "medium", "high", "xhigh", "max"];
+    const target = order.indexOf(setting);
+    if (target < 0) {
+      return undefined;
+    }
+
+    let best = supported[0];
+    for (const candidate of supported) {
+      if (Math.abs(order.indexOf(candidate) - target) < Math.abs(order.indexOf(best) - target)) {
+        best = candidate;
+      }
+    }
+    return best;
   }
 
   private toUserFacingError(error: unknown): Error {

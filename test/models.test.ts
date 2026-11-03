@@ -3,6 +3,7 @@ import {
   FALLBACK_MODELS,
   formatTokenCount,
   isFreeModel,
+  resolveTokenLimits,
   selectModels,
   supportsImageInput,
   supportsToolCalling,
@@ -66,11 +67,41 @@ describe("model helpers", () => {
       id: "vision-model",
       name: "Vision Model",
       family: "vision",
-      maxInputTokens: 1_000_000,
+      maxInputTokens: 872_000,
       maxOutputTokens: 128_000,
       detail: "1M context",
       capabilities: { imageInput: true, toolCalling: true },
     });
+  });
+
+  it("keeps input and output inside the real context window", () => {
+    expect(resolveTokenLimits(visionModel)).toEqual({
+      maxInputTokens: 872_000,
+      maxOutputTokens: 128_000,
+      context: 1_000_000,
+    });
+    expect(
+      resolveTokenLimits({ id: "deepseek", limit: { context: 1_000_000, output: 384_000 } }),
+    ).toEqual({
+      maxInputTokens: 616_000,
+      maxOutputTokens: 384_000,
+      context: 1_000_000,
+    });
+  });
+
+  it("caps the context window when configured", () => {
+    expect(resolveTokenLimits(visionModel, 100_000)).toEqual({
+      maxInputTokens: 25_000,
+      maxOutputTokens: 75_000,
+      context: 100_000,
+    });
+  });
+
+  it("handles models whose output limit equals the context window", () => {
+    const limits = resolveTokenLimits({ id: "equal", limit: { context: 262_144, output: 262_144 } });
+    expect(limits.context).toBe(262_144);
+    expect(limits.maxInputTokens).toBeGreaterThan(0);
+    expect(limits.maxOutputTokens).toBeGreaterThan(0);
   });
 
   it("formats token counts", () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Fix the reported context window so VS Code shows the model's real context size instead of input + output exceeding it.
+- Add `opencodeGo.contextWindowTokens` to cap the context window reported to VS Code.
+- Add `opencodeGo.reasoningEffort` and the **Set Reasoning Effort** command for models with configurable reasoning.
+
 ## 0.1.1
 
 - Fix duplicate model entries in the model picker when the provider uses VS Code's native API key configuration.

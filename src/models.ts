@@ -185,10 +185,52 @@ export function formatTokenCount(tokens: number): string {
   return String(tokens);
 }
 
-export function toChatInformation(model: OpenCodeModel): vscode.LanguageModelChatInformation {
-  const context = model.limit?.context ?? model.limit?.input ?? 128_000;
-  const maxOutputTokens = model.limit?.output ?? Math.min(16_384, context);
-  const maxInputTokens = model.limit?.input ?? context;
+export interface TokenLimits {
+  readonly maxInputTokens: number;
+  readonly maxOutputTokens: number;
+  readonly context: number;
+}
+
+/**
+ * VS Code displays "Max context" as maxInputTokens + maxOutputTokens, so the
+ * two values must add up to the model's real context window.
+ */
+export function resolveTokenLimits(model: OpenCodeModel, contextWindowOverride = 0): TokenLimits {
+  const modelContext = Math.max(1, model.limit?.context ?? model.limit?.input ?? 128_000);
+  let maxOutputTokens = Math.max(1, model.limit?.output ?? Math.min(16_384, modelContext));
+  let maxInputTokens = model.limit?.input ?? Math.max(0, modelContext - maxOutputTokens);
+
+  if (maxInputTokens < modelContext * 0.05) {
+    maxInputTokens = Math.max(1, Math.floor(modelContext * 0.25));
+    maxOutputTokens = Math.max(1, modelContext - maxInputTokens);
+  } else {
+    maxOutputTokens = Math.min(maxOutputTokens, Math.max(1, modelContext - maxInputTokens));
+    maxInputTokens = Math.min(maxInputTokens, Math.max(1, modelContext - maxOutputTokens));
+  }
+
+  const target =
+    contextWindowOverride > 0 ? Math.min(contextWindowOverride, modelContext) : modelContext;
+  if (target < modelContext) {
+    const minInput = Math.max(1, Math.floor(target * 0.25));
+    maxOutputTokens = Math.min(maxOutputTokens, Math.max(1, target - minInput));
+    maxInputTokens = Math.min(maxInputTokens, Math.max(1, target - maxOutputTokens));
+    if (maxInputTokens + maxOutputTokens > target) {
+      maxOutputTokens = Math.max(1, target - maxInputTokens);
+    }
+  }
+
+  return {
+    maxInputTokens,
+    maxOutputTokens,
+    context: maxInputTokens + maxOutputTokens,
+  };
+}
+
+export function toChatInformation(
+  model: OpenCodeModel,
+  contextWindowOverride = 0,
+): vscode.LanguageModelChatInformation {
+  const limits = resolveTokenLimits(model, contextWindowOverride);
   const toolCalling = supportsToolCalling(model);
   const imageInput = supportsImageInput(model);
 
@@ -197,10 +239,10 @@ export function toChatInformation(model: OpenCodeModel): vscode.LanguageModelCha
     name: model.name ?? model.id,
     family: model.family ?? model.canonical_id?.split("/")[0] ?? model.id,
     version: "1.0.0",
-    detail: `${formatTokenCount(context)} context`,
+    detail: `${formatTokenCount(limits.context)} context`,
     tooltip: model.description ?? model.name ?? model.id,
-    maxInputTokens,
-    maxOutputTokens,
+    maxInputTokens: limits.maxInputTokens,
+    maxOutputTokens: limits.maxOutputTokens,
     capabilities: {
       toolCalling,
       imageInput,

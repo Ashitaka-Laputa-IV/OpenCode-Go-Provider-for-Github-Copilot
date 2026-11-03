@@ -15,10 +15,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("opencodeGo.setApiKey", () => provider.setApiKey()),
     vscode.commands.registerCommand("opencodeGo.clearApiKey", () => provider.clearApiKey()),
     vscode.commands.registerCommand("opencodeGo.refreshModels", () => provider.refreshModels()),
+    vscode.commands.registerCommand("opencodeGo.setReasoningEffort", () =>
+      provider.setReasoningEffort(),
+    ),
+    vscode.commands.registerCommand("opencodeGo.setContextWindow", () =>
+      provider.setContextWindow(),
+    ),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration("opencodeGo.baseUrl") ||
-        event.affectsConfiguration("opencodeGo.includeFreeModels")
+        event.affectsConfiguration("opencodeGo.includeFreeModels") ||
+        event.affectsConfiguration("opencodeGo.contextWindowTokens")
       ) {
         provider.refreshModels(false);
       }
