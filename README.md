@@ -15,7 +15,7 @@ This extension contributes an **OpenCode Go** language model provider, so it sho
 - **Image input** for models that natively support vision through Chat Completions.
 - **Stable session routing** — every conversation gets a stable `x-opencode-session` value for gateway routing and prompt caching.
 - **Secure key storage** — the API key is stored by VS Code's secret storage, never in settings or logs.
-- **Offline fallback** — a small built-in model list keeps the provider usable when the catalog endpoint is unreachable.
+- **Offline catalog cache** — the last successful model catalog is stored locally and reused when the catalog endpoint is unreachable.
 
 ## Requirements
 
@@ -73,7 +73,7 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 - Vision is advertised only for models that natively use the Chat Completions API. The gateway translates text between APIs, but image translation is not guaranteed for Anthropic/Gemini/Responses-native models.
 - Usage limits and model availability are controlled by your OpenCode plan.
 - The catalog is read at runtime. It is cached for 10 minutes, refreshed every 30 minutes and when the window regains focus, and can be refreshed immediately with **OpenCode Go: Refresh Models**. New or removed Go models do not require an extension update.
-- If the catalog endpoint is unreachable, the extension reuses the last successful catalog. The built-in fallback list is only used on a first run with no network.
+- If the catalog endpoint is unreachable, the extension reuses the last successful catalog stored locally. On a first run with no network, no models are shown until **Refresh Models** succeeds.
 
 ## Settings
 
@@ -173,7 +173,7 @@ src/extension.ts   activation and contributions
 src/provider.ts    LanguageModelChatProvider implementation
 src/client.ts      model catalog + streaming chat requests
 src/convert.ts     VS Code <-> OpenAI message conversion
-src/models.ts      catalog types, mapping, offline fallback
+src/models.ts      catalog types and mapping
 src/session.ts     stable x-opencode-session IDs
 src/sse.ts         incremental SSE parser
 ```

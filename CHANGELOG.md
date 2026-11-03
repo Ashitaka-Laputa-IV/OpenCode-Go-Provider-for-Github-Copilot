@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Remove the hard-coded fallback model list. The last successful catalog is stored locally and reused when the API is unreachable; a first run without network shows no models until a refresh succeeds.
+
 ## 0.1.4
 
 - Refresh the live model catalog every 30 minutes and when the window regains focus, so Go plan model changes appear without reloading VS Code.

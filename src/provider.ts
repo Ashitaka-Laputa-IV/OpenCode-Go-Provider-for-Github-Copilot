@@ -4,7 +4,6 @@ import { convertMessages, convertTools, firstUserText } from "./convert";
 import type { Logger } from "./log";
 import {
   DEFAULT_BASE_URL,
-  FALLBACK_MODELS,
   MODELS_CACHE_MS,
   selectModels,
   toChatInformation,
@@ -16,6 +15,7 @@ import { sessionIdFor, sessionSeed } from "./session";
 
 const SECRET_KEY = "opencodeGo.apiKey";
 const CONFIG_SECTION = "opencodeGo";
+const CATALOG_STORAGE_KEY = "opencodeGo.catalog.v1";
 const REASONING_EFFORTS = ["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 interface ProviderConfiguration {
@@ -47,6 +47,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private readonly userAgent: string;
   private catalog: ModelCatalog | undefined;
   private lastGoodCatalog: ModelCatalog | undefined;
+  private catalogLoadedFromStorage = false;
   private lastUpdateCheck = 0;
   private cachedApiKey: string | undefined;
   private readonly modelMetadata = new Map<string, OpenCodeModel>();
@@ -364,6 +365,23 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
 
   private async getCatalog(token: vscode.CancellationToken): Promise<ModelCatalog["models"]> {
     const baseUrl = this.getBaseUrl();
+
+    if (!this.catalogLoadedFromStorage) {
+      this.catalogLoadedFromStorage = true;
+      const stored = this.context.globalState.get<ModelCatalog>(CATALOG_STORAGE_KEY);
+      if (
+        stored &&
+        stored.baseUrl === baseUrl &&
+        Array.isArray(stored.models) &&
+        stored.models.length > 0 &&
+        typeof stored.fetchedAt === "number"
+      ) {
+        this.catalog = stored;
+        this.lastGoodCatalog = stored;
+        this.logger.info("loaded cached model catalog", { count: stored.models.length });
+      }
+    }
+
     if (
       this.catalog &&
       this.catalog.baseUrl === baseUrl &&
@@ -380,6 +398,9 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       if (models.length > 0) {
         this.catalog = { models, fetchedAt: Date.now(), baseUrl };
         this.lastGoodCatalog = this.catalog;
+        void Promise.resolve(this.context.globalState.update(CATALOG_STORAGE_KEY, this.catalog)).catch(
+          () => undefined,
+        );
         this.logger.info("model catalog loaded", { count: models.length, baseUrl });
         return models;
       }
@@ -393,8 +414,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     }
 
     // Prefer the last catalog that actually worked. Go plan changes are picked
-    // up from the live endpoint; the hard-coded list is only a first-run
-    // offline fallback.
+    // up from the live endpoint; there is no hard-coded model list.
     if (this.lastGoodCatalog && this.lastGoodCatalog.baseUrl === baseUrl) {
       this.catalog = {
         ...this.lastGoodCatalog,
@@ -407,11 +427,11 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     // Retry the live catalog soon, but avoid a 15 second stall on every model
     // resolution while the network is down.
     this.catalog = {
-      models: [...FALLBACK_MODELS],
+      models: [],
       fetchedAt: Date.now() - MODELS_CACHE_MS + 60_000,
       baseUrl,
     };
-    return [...FALLBACK_MODELS];
+    return [];
   }
 
   private catalogSignature(): string {

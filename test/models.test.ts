@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  FALLBACK_MODELS,
   formatTokenCount,
   isFreeModel,
   resolveTokenLimits,
@@ -122,10 +121,5 @@ describe("model helpers", () => {
     expect(formatTokenCount(1_048_576)).toBe("1M");
     expect(formatTokenCount(1_500_000)).toBe("1.5M");
     expect(formatTokenCount(262_144)).toBe("262K");
-  });
-
-  it("ships fallback models for offline use", () => {
-    expect(FALLBACK_MODELS.length).toBeGreaterThan(0);
-    expect(FALLBACK_MODELS.every((model) => model.id.length > 0)).toBe(true);
   });
 });
