@@ -27,12 +27,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot"
+    "url": "https://github.com/Ashitaka-Laputa-IV/OpenCode-Go-Provider-for-Github-Copilot"
   },
   "bugs": {
-    "url": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot/issues"
+    "url": "https://github.com/Ashitaka-Laputa-IV/OpenCode-Go-Provider-for-Github-Copilot/issues"
   },
-  "homepage": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot#readme",
+  "homepage": "https://github.com/Ashitaka-Laputa-IV/OpenCode-Go-Provider-for-Github-Copilot#readme",
   "galleryBanner": {
     "color": "#0d1117",
     "theme": "dark"
