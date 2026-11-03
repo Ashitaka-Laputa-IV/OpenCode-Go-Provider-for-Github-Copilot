@@ -1,0 +1,119 @@
+{
+  "name": "opencode-go-copilot",
+  "displayName": "OpenCode Go for GitHub Copilot",
+  "description": "Use OpenCode Go models in GitHub Copilot Chat. Add the provider, paste your API key, and chat.",
+  "version": "0.1.0",
+  "publisher": "ashit",
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "copilot",
+    "opencode",
+    "byok",
+    "language-model",
+    "ai",
+    "chat",
+    "deepseek",
+    "kimi",
+    "glm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot"
+  },
+  "bugs": {
+    "url": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot/issues"
+  },
+  "homepage": "https://github.com/Ashit/OpenCode-Go-Provider-for-Github-Copilot#readme",
+  "galleryBanner": {
+    "color": "#0d1117",
+    "theme": "dark"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "opencode-go",
+        "displayName": "OpenCode Go",
+        "configuration": {
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "secret": true,
+              "title": "API Key",
+              "description": "OpenCode Go API key (starts with oc_sk_). Create one at https://opencode.ai/auth."
+            }
+          },
+          "required": [
+            "apiKey"
+          ]
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "opencodeGo.setApiKey",
+        "title": "Set API Key",
+        "category": "OpenCode Go"
+      },
+      {
+        "command": "opencodeGo.clearApiKey",
+        "title": "Clear API Key",
+        "category": "OpenCode Go"
+      },
+      {
+        "command": "opencodeGo.refreshModels",
+        "title": "Refresh Models",
+        "category": "OpenCode Go"
+      }
+    ],
+    "configuration": {
+      "title": "OpenCode Go",
+      "properties": {
+        "opencodeGo.baseUrl": {
+          "type": "string",
+          "default": "https://opencode.ai/inference/go",
+          "markdownDescription": "OpenCode API base URL. Use `https://opencode.ai/inference` for a pay-as-you-go (Zen) key instead of a Go subscription.",
+          "scope": "application"
+        },
+        "opencodeGo.includeFreeModels": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show free-tier models. These are usually limited to the OpenCode client and may return HTTP 403 from other clients.",
+          "scope": "application"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "npm run compile && node scripts/run-integration.mjs",
+    "check": "npm run typecheck && npm run test && npm run compile",
+    "package": "vsce package",
+    "publish:marketplace": "vsce publish",
+    "publish:openvsx": "ovsx publish"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.125.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "ovsx": "^0.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

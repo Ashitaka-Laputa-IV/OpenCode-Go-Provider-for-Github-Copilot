@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify tag matches package version
+        run: |
+          node -e "const p=require('./package.json'); if ('v'+p.version !== process.env.GITHUB_REF_NAME) { console.error('Tag ' + process.env.GITHUB_REF_NAME + ' does not match package.json version ' + p.version); process.exit(1); }"
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Package VSIX
+        run: npm run package -- --out "opencode-go-copilot-${GITHUB_REF_NAME}.vsix"
+
+      - name: Publish to VS Code Marketplace
+        run: npx @vscode/vsce publish --packagePath "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" -p "$VSCE_PAT"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+      - name: Create GitHub release
+        run: gh release create "$GITHUB_REF_NAME" "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
