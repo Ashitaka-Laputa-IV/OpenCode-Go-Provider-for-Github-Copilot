@@ -28,6 +28,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("opencodeGo.setContextWindow", () =>
       provider.setContextWindow(),
     ),
+    vscode.commands.registerCommand("opencodeGo.configureModel", () =>
+      provider.configureModelSettings(),
+    ),
+    vscode.commands.registerCommand("opencodeGo.resetModelSettings", () =>
+      provider.resetModelSettings(),
+    ),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration("opencodeGo.baseUrl") ||

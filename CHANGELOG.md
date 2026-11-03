@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- Add per-model context and reasoning effort overrides through **Configure Model Settings** and **Reset Model Settings**.
+
 ## 0.1.5
 
 - Remove the hard-coded fallback model list. The last successful catalog is stored locally and reused when the API is unreachable; a first run without network shows no models until a refresh succeeds.

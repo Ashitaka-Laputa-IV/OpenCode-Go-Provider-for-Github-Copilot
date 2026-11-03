@@ -16,7 +16,15 @@ import { sessionIdFor, sessionSeed } from "./session";
 const SECRET_KEY = "opencodeGo.apiKey";
 const CONFIG_SECTION = "opencodeGo";
 const CATALOG_STORAGE_KEY = "opencodeGo.catalog.v1";
+const MODEL_OVERRIDES_KEY = "opencodeGo.modelOverrides.v1";
 const REASONING_EFFORTS = ["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+interface ModelOverride {
+  contextWindowTokens?: number;
+  reasoningEffort?: string;
+}
+
+type ModelOverrides = Record<string, ModelOverride>;
 
 interface ProviderConfiguration {
   apiKey?: unknown;
@@ -50,6 +58,8 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private catalogLoadedFromStorage = false;
   private lastUpdateCheck = 0;
   private cachedApiKey: string | undefined;
+  private modelOverrides: ModelOverrides = {};
+  private modelOverridesLoaded = false;
   private readonly modelMetadata = new Map<string, OpenCodeModel>();
 
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
@@ -90,7 +100,10 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     for (const model of unique) {
       this.modelMetadata.set(model.id, model);
     }
-    return unique.map((model) => toChatInformation(model, this.getContextWindowTokens()));
+    const globalContext = this.getContextWindowTokens();
+    return unique.map((model) =>
+      toChatInformation(model, this.getModelContextWindow(model.id, globalContext)),
+    );
   }
 
   async provideLanguageModelChatResponse(
@@ -276,6 +289,84 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
         ? "OpenCode Go now uses each model's native context window."
         : `OpenCode Go context window capped at ${parsed.toLocaleString()} tokens.`,
     );
+  }
+
+  async configureModelSettings(): Promise<void> {
+    const models = await this.getModelsForSettings();
+    if (models.length === 0) {
+      void vscode.window.showWarningMessage(
+        "OpenCode Go: no models available. Add an API key or refresh models first.",
+      );
+      return;
+    }
+
+    const picked = await vscode.window.showQuickPick(
+      models.map((model) => ({
+        label: model.name ?? model.id,
+        description: model.id,
+        detail: this.describeModelOverride(model.id),
+        model,
+      })),
+      {
+        title: "OpenCode Go: Configure Model",
+        placeHolder: "Select a model to configure",
+      },
+    );
+    if (!picked) {
+      return;
+    }
+
+    const action = await vscode.window.showQuickPick(
+      [
+        { label: "Context window", description: "Cap input + output tokens for this model" },
+        { label: "Reasoning effort", description: "Thinking level for this model" },
+        { label: "Reset this model", description: "Use the global settings" },
+      ],
+      { title: `OpenCode Go: ${picked.label}` },
+    );
+    if (!action) {
+      return;
+    }
+
+    if (action.label === "Reset this model") {
+      this.removeModelOverride(picked.model.id);
+      return;
+    }
+    if (action.label === "Context window") {
+      await this.configureModelContext(picked.model);
+      return;
+    }
+    await this.configureModelReasoning(picked.model);
+  }
+
+  async resetModelSettings(): Promise<void> {
+    const overrides = this.ensureModelOverrides();
+    const ids = Object.keys(overrides);
+    if (ids.length === 0) {
+      void vscode.window.showInformationMessage("OpenCode Go: no per-model settings to reset.");
+      return;
+    }
+
+    const models = await this.getModelsForSettings().catch(() => [] as OpenCodeModel[]);
+    const picked = await vscode.window.showQuickPick(
+      ids.map((id) => {
+        const model = models.find((candidate) => candidate.id === id);
+        return {
+          label: model?.name ?? id,
+          description: id,
+          detail: this.describeModelOverride(id),
+          id,
+        };
+      }),
+      {
+        title: "OpenCode Go: Reset Model Settings",
+        placeHolder: "Select a model",
+      },
+    );
+    if (!picked) {
+      return;
+    }
+    this.removeModelOverride(picked.id);
   }
 
   refreshModels(notify = true): void {
@@ -479,6 +570,137 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
   }
 
+  private ensureModelOverrides(): ModelOverrides {
+    if (!this.modelOverridesLoaded) {
+      this.modelOverridesLoaded = true;
+      const stored = this.context.globalState.get<ModelOverrides>(MODEL_OVERRIDES_KEY);
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+        this.modelOverrides = stored;
+      }
+    }
+    return this.modelOverrides;
+  }
+
+  private getModelContextWindow(modelId: string, globalContext: number): number {
+    const override = this.ensureModelOverrides()[modelId]?.contextWindowTokens;
+    return typeof override === "number" && override > 0 ? override : globalContext;
+  }
+
+  private describeModelOverride(modelId: string): string {
+    const override = this.ensureModelOverrides()[modelId];
+    if (!override) {
+      return "Using global settings";
+    }
+    const parts: string[] = [];
+    if (override.contextWindowTokens) {
+      parts.push(`context ${override.contextWindowTokens.toLocaleString()}`);
+    }
+    if (override.reasoningEffort) {
+      parts.push(`effort ${override.reasoningEffort}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Using global settings";
+  }
+
+  private saveModelOverrides(): void {
+    void Promise.resolve(
+      this.context.globalState.update(MODEL_OVERRIDES_KEY, this.modelOverrides),
+    ).catch(() => undefined);
+  }
+
+  private removeModelOverride(modelId: string): void {
+    delete this.ensureModelOverrides()[modelId];
+    this.saveModelOverrides();
+    this.changeEmitter.fire();
+    void vscode.window.showInformationMessage(`OpenCode Go: reset settings for ${modelId}.`);
+  }
+
+  private async getModelsForSettings(): Promise<OpenCodeModel[]> {
+    const source = new vscode.CancellationTokenSource();
+    try {
+      const models = await this.getCatalog(source.token);
+      return selectModels(models, this.includeFreeModels());
+    } finally {
+      source.dispose();
+    }
+  }
+
+  private async configureModelContext(model: OpenCodeModel): Promise<void> {
+    const current = this.ensureModelOverrides()[model.id]?.contextWindowTokens ?? 0;
+    const value = await vscode.window.showInputBox({
+      title: `OpenCode Go: ${model.name ?? model.id} Context`,
+      prompt:
+        "Maximum context window (input + output) for this model. Use 0 to inherit the global setting.",
+      value: String(current),
+      ignoreFocusOut: true,
+      validateInput: (input) => {
+        const parsed = Number(input.trim());
+        return Number.isFinite(parsed) && parsed >= 0
+          ? undefined
+          : "Enter 0 or a positive number of tokens.";
+      },
+    });
+    if (value === undefined) {
+      return;
+    }
+    const parsed = Math.floor(Number(value.trim()));
+    const existing = { ...(this.modelOverrides[model.id] ?? {}) };
+    if (parsed === 0) {
+      delete existing.contextWindowTokens;
+    } else {
+      existing.contextWindowTokens = parsed;
+    }
+    this.storeModelOverride(model.id, existing);
+  }
+
+  private async configureModelReasoning(model: OpenCodeModel): Promise<void> {
+    const reasoning = model.capabilities?.reasoning;
+    if (reasoning?.supported !== true) {
+      void vscode.window.showInformationMessage(
+        `OpenCode Go: ${model.name ?? model.id} does not expose reasoning effort settings.`,
+      );
+      return;
+    }
+
+    const supported = [...new Set((reasoning.effort ?? []).map((effort) => effort.toLowerCase()))];
+    const items: Array<{ label: string; description?: string; value?: string }> = [
+      {
+        label: "Use global setting",
+        description: "Inherit the global reasoning effort",
+        value: undefined,
+      },
+      { label: "auto", description: "Let the model decide", value: "auto" },
+      ...supported.map((effort) => ({ label: effort, value: effort })),
+    ];
+
+    const current = this.ensureModelOverrides()[model.id]?.reasoningEffort;
+    const picked = await vscode.window.showQuickPick(items, {
+      title: `OpenCode Go: ${model.name ?? model.id} Reasoning`,
+      placeHolder: current ? `Current: ${current}` : "Using global setting",
+    });
+    if (!picked) {
+      return;
+    }
+
+    const existing = { ...(this.modelOverrides[model.id] ?? {}) };
+    if (picked.value === undefined) {
+      delete existing.reasoningEffort;
+    } else {
+      existing.reasoningEffort = picked.value;
+    }
+    this.storeModelOverride(model.id, existing);
+  }
+
+  private storeModelOverride(modelId: string, override: ModelOverride): void {
+    if (override.contextWindowTokens === undefined && override.reasoningEffort === undefined) {
+      delete this.modelOverrides[modelId];
+    } else {
+      this.modelOverrides[modelId] = override;
+    }
+    this.saveModelOverrides();
+    this.changeEmitter.fire();
+    void vscode.window.showInformationMessage(`OpenCode Go: updated settings for ${modelId}.`);
+  }
+
   private requestModelOptions(
     modelId: string,
     options: Record<string, unknown> | undefined,
@@ -492,11 +714,11 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   }
 
   private resolveReasoningEffort(modelId: string): string | undefined {
-    const setting = vscode.workspace
+    const globalSetting = vscode.workspace
       .getConfiguration(CONFIG_SECTION)
-      .get<string>("reasoningEffort", "auto")
-      .trim()
-      .toLowerCase();
+      .get<string>("reasoningEffort", "auto");
+    const override = this.ensureModelOverrides()[modelId]?.reasoningEffort;
+    const setting = (override ?? globalSetting).trim().toLowerCase();
     if (setting.length === 0 || setting === "auto") {
       return undefined;
     }

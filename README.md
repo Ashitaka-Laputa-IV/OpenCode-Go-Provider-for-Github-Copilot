@@ -84,7 +84,17 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 | `opencodeGo.contextWindowTokens` | `0` | Maximum context window (input + output) reported to VS Code. `0` uses each model's native window. |
 | `opencodeGo.reasoningEffort` | `auto` | Reasoning effort for models that support it: `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
 
-The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above or the commands below to change them globally.
+The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above, the commands below, or per-model overrides.
+
+### Per-model settings
+
+Run **OpenCode Go: Configure Model Settings**, select a model, then choose:
+
+- **Context window** — `0` inherits the global setting
+- **Reasoning effort** — inherit the global setting, `auto`, or one of the effort levels advertised by that model
+- **Reset this model** — remove its overrides
+
+Overrides are stored in VS Code's extension state and survive updates. Use **OpenCode Go: Reset Model Settings** to clear one.
 
 ## Commands
 
@@ -93,6 +103,8 @@ The stable VS Code provider API does not expose per-model context or reasoning c
 - **OpenCode Go: Refresh Models**
 - **OpenCode Go: Set Reasoning Effort**
 - **OpenCode Go: Set Max Context Window**
+- **OpenCode Go: Configure Model Settings**
+- **OpenCode Go: Reset Model Settings**
 
 The API key commands are a fallback for VS Code versions that do not render the native provider configuration UI.
 
