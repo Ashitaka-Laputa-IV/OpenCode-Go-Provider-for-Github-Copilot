@@ -83,8 +83,18 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 | `opencodeGo.includeFreeModels` | `false` | Show free-tier models that are usually limited to the OpenCode client. |
 | `opencodeGo.contextWindowTokens` | `0` | Maximum context window (input + output) reported to VS Code. `0` uses each model's native window. |
 | `opencodeGo.reasoningEffort` | `auto` | Reasoning effort for models that support it: `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
+| `opencodeGo.pickerPresets` | `true` | Show **Compact** and **Deep Think** preset rows in the model picker. |
 
-The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above, the commands below, or per-model overrides.
+The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above, the preset rows, the commands below, or per-model overrides.
+
+### Picker presets
+
+When `opencodeGo.pickerPresets` is enabled, each model gets up to two extra entries in the model picker:
+
+- **Compact** — caps the context window at 200K and prefers the lowest reasoning effort
+- **Deep Think** — uses the full context window and prefers the highest reasoning effort
+
+Selecting a preset applies its context and reasoning settings for that conversation. Turn the setting off to show only the base models.
 
 ### Per-model settings
 

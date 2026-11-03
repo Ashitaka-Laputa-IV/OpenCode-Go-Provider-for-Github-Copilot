@@ -3,6 +3,7 @@ import { fetchModelCatalog, OpenCodeHttpError, streamChat } from "./client";
 import { convertMessages, convertTools, firstUserText } from "./convert";
 import type { Logger } from "./log";
 import {
+  buildModelPresets,
   DEFAULT_BASE_URL,
   MODELS_CACHE_MS,
   selectModels,
@@ -61,6 +62,10 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private modelOverrides: ModelOverrides = {};
   private modelOverridesLoaded = false;
   private readonly modelMetadata = new Map<string, OpenCodeModel>();
+  private readonly variantConfig = new Map<
+    string,
+    { baseId: string; reasoningEffort?: string }
+  >();
 
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
 
@@ -97,13 +102,32 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       baseUrl: this.getBaseUrl(),
     });
     this.modelMetadata.clear();
-    for (const model of unique) {
-      this.modelMetadata.set(model.id, model);
-    }
+    this.variantConfig.clear();
     const globalContext = this.getContextWindowTokens();
-    return unique.map((model) =>
-      toChatInformation(model, this.getModelContextWindow(model.id, globalContext)),
-    );
+    const includePresets = this.includePickerPresets();
+    const infos: vscode.LanguageModelChatInformation[] = [];
+    for (const model of unique) {
+      const baseContext = this.getModelContextWindow(model.id, globalContext);
+      infos.push(toChatInformation(model, baseContext));
+      this.modelMetadata.set(model.id, model);
+
+      if (!includePresets) {
+        continue;
+      }
+      for (const preset of buildModelPresets(model, baseContext)) {
+        const id = `${model.id}#${preset.key}`;
+        const name = `${model.name ?? model.id} · ${preset.label}`;
+        infos.push(
+          toChatInformation(model, preset.contextWindowTokens ?? baseContext, { id, name }),
+        );
+        this.modelMetadata.set(id, model);
+        this.variantConfig.set(id, {
+          baseId: model.id,
+          reasoningEffort: preset.reasoningEffort,
+        });
+      }
+    }
+    return infos;
   }
 
   async provideLanguageModelChatResponse(
@@ -122,10 +146,14 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
 
     const converted = convertMessages(messages);
     const { tools, toolChoice } = convertTools(options.tools, options.toolMode);
+    const variant = this.variantConfig.get(model.id);
+    const requestModelId = variant?.baseId ?? model.id;
     const workspace = (vscode.workspace.workspaceFolders ?? [])
       .map((folder) => folder.uri.toString())
       .join("|");
-    const sessionId = sessionIdFor(sessionSeed(workspace, model.id, firstUserText(messages)));
+    const sessionId = sessionIdFor(
+      sessionSeed(workspace, requestModelId, firstUserText(messages)),
+    );
 
     const abort = new AbortController();
     const cancellation = token.onCancellationRequested(() => abort.abort());
@@ -147,13 +175,14 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
         apiKey,
         sessionId,
         userAgent: this.userAgent,
-        model: model.id,
+        model: requestModelId,
         messages: converted,
         tools,
         toolChoice,
         modelOptions: this.requestModelOptions(
-          model.id,
+          requestModelId,
           options.modelOptions as Record<string, unknown> | undefined,
+          variant?.reasoningEffort,
         ),
         signal: abort.signal,
         onText: (text) => progress.report(new vscode.LanguageModelTextPart(text)),
@@ -563,6 +592,10 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     return vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("includeFreeModels", false);
   }
 
+  private includePickerPresets(): boolean {
+    return vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("pickerPresets", true);
+  }
+
   private getContextWindowTokens(): number {
     const value = vscode.workspace
       .getConfiguration(CONFIG_SECTION)
@@ -704,9 +737,10 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private requestModelOptions(
     modelId: string,
     options: Record<string, unknown> | undefined,
+    forcedEffort?: string,
   ): Record<string, unknown> {
     const merged = { ...(options ?? {}) };
-    const effort = this.resolveReasoningEffort(modelId);
+    const effort = forcedEffort ?? this.resolveReasoningEffort(modelId);
     if (effort) {
       merged.reasoning_effort = effort;
     }

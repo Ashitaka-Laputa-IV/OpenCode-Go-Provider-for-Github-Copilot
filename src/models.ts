@@ -146,17 +146,75 @@ export function resolveTokenLimits(model: OpenCodeModel, contextWindowOverride =
   };
 }
 
+export interface ChatInformationVariant {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface ModelPreset {
+  readonly key: "compact" | "deep";
+  readonly label: string;
+  readonly contextWindowTokens?: number;
+  readonly reasoningEffort?: string;
+}
+
+function chooseEffort(supported: readonly string[], targets: readonly string[]): string | undefined {
+  for (const target of targets) {
+    if (supported.includes(target)) {
+      return target;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Build a small set of picker presets. The stable VS Code API has no per-model
+ * settings panel for third-party providers, so each preset is a separate model
+ * entry with its own context and reasoning settings.
+ */
+export function buildModelPresets(model: OpenCodeModel, baseContext: number): ModelPreset[] {
+  const efforts = (model.capabilities?.reasoning?.effort ?? []).map((effort) =>
+    effort.toLowerCase(),
+  );
+  const canReason = model.capabilities?.reasoning?.supported === true && efforts.length > 0;
+  const compactContext = Math.min(baseContext, 200_000);
+  const compactEffort = chooseEffort(efforts, ["minimal", "low"]);
+  const deepEffort = chooseEffort(efforts, ["max", "xhigh", "high"]);
+  const presets: ModelPreset[] = [];
+
+  if (compactContext < baseContext || compactEffort !== undefined) {
+    presets.push({
+      key: "compact",
+      label: "Compact",
+      contextWindowTokens: compactContext,
+      reasoningEffort: compactEffort,
+    });
+  }
+
+  if (baseContext > compactContext || (deepEffort !== undefined && deepEffort !== compactEffort)) {
+    presets.push({
+      key: "deep",
+      label: canReason ? "Deep Think" : "Full Context",
+      contextWindowTokens: baseContext,
+      reasoningEffort: deepEffort,
+    });
+  }
+
+  return presets;
+}
+
 export function toChatInformation(
   model: OpenCodeModel,
   contextWindowOverride = 0,
+  variant?: ChatInformationVariant,
 ): vscode.LanguageModelChatInformation {
   const limits = resolveTokenLimits(model, contextWindowOverride);
   const toolCalling = supportsToolCalling(model);
   const imageInput = supportsImageInput(model);
 
   return {
-    id: model.id,
-    name: model.name ?? model.id,
+    id: variant?.id ?? model.id,
+    name: variant?.name ?? model.name ?? model.id,
     family: model.family ?? model.canonical_id?.split("/")[0] ?? model.id,
     version: "1.0.0",
     detail: `${formatTokenCount(limits.context)} context`,

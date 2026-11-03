@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+- Add **Compact** and **Deep Think** preset entries in the model picker. Each preset is a separate model row with its own context window and reasoning effort, because the stable VS Code API does not expose a per-model settings panel to third-party providers.
+- Add `opencodeGo.pickerPresets` to turn the preset rows off.
+
 ## 0.1.6
 
 - Add per-model context and reasoning effort overrides through **Configure Model Settings** and **Reset Model Settings**.

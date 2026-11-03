@@ -2,7 +2,7 @@
   "name": "opencode-go-provider-for-copilot",
   "displayName": "OpenCode Go for GitHub Copilot",
   "description": "Use OpenCode Go models in GitHub Copilot Chat. Add the provider, paste your API key, and chat.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "Ashitaka",
   "license": "MIT",
   "icon": "assets/icon.png",
@@ -132,6 +132,12 @@
           ],
           "default": "auto",
           "markdownDescription": "Reasoning effort sent to models that support it. `auto` lets each model decide.",
+          "scope": "application"
+        },
+        "opencodeGo.pickerPresets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Compact and Deep Think preset entries in the model picker so context and reasoning options can be chosen directly.",
           "scope": "application"
         }
       }

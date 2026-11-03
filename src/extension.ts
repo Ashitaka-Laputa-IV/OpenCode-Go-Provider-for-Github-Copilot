@@ -38,7 +38,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (
         event.affectsConfiguration("opencodeGo.baseUrl") ||
         event.affectsConfiguration("opencodeGo.includeFreeModels") ||
-        event.affectsConfiguration("opencodeGo.contextWindowTokens")
+        event.affectsConfiguration("opencodeGo.contextWindowTokens") ||
+        event.affectsConfiguration("opencodeGo.pickerPresets")
       ) {
         provider.refreshModels(false);
       }

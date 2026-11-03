@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildModelPresets,
   formatTokenCount,
   isFreeModel,
   resolveTokenLimits,
@@ -121,5 +122,44 @@ describe("model helpers", () => {
     expect(formatTokenCount(1_048_576)).toBe("1M");
     expect(formatTokenCount(1_500_000)).toBe("1.5M");
     expect(formatTokenCount(262_144)).toBe("262K");
+  });
+
+  it("builds compact and deep presets for reasoning models", () => {
+    expect(
+      buildModelPresets(
+        {
+          id: "reasoning",
+          capabilities: { reasoning: { supported: true, effort: ["low", "high", "max"] } },
+          limit: { context: 1_000_000, output: 131_072 },
+        },
+        1_000_000,
+      ),
+    ).toEqual([
+      { key: "compact", label: "Compact", contextWindowTokens: 200_000, reasoningEffort: "low" },
+      { key: "deep", label: "Deep Think", contextWindowTokens: 1_000_000, reasoningEffort: "max" },
+    ]);
+  });
+
+  it("builds context-only presets for non-reasoning models", () => {
+    expect(
+      buildModelPresets(
+        { id: "large", limit: { context: 1_000_000, output: 131_072 } },
+        1_000_000,
+      ),
+    ).toEqual([
+      { key: "compact", label: "Compact", contextWindowTokens: 200_000, reasoningEffort: undefined },
+      {
+        key: "deep",
+        label: "Full Context",
+        contextWindowTokens: 1_000_000,
+        reasoningEffort: undefined,
+      },
+    ]);
+  });
+
+  it("does not add presets for small models without reasoning options", () => {
+    expect(
+      buildModelPresets({ id: "small", limit: { context: 128_000, output: 16_384 } }, 128_000),
+    ).toEqual([]);
   });
 });
