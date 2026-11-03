@@ -65,19 +65,22 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     token: vscode.CancellationToken,
   ): Promise<vscode.LanguageModelChatInformation[]> {
     const configuration = (options as InfoOptions).configuration;
-    const apiKey = await this.resolveApiKey(configuration, options.silent);
+    const apiKey = await this.resolveApiKey(configuration, options.silent, configuration !== undefined);
     if (!apiKey) {
       return [];
     }
 
     const models = await this.getCatalog(token);
     const visible = selectModels(models, this.includeFreeModels());
+    const unique = visible.filter(
+      (model, index, list) => list.findIndex((candidate) => candidate.id === model.id) === index,
+    );
     this.logger.info("models resolved", {
       total: models.length,
-      visible: visible.length,
+      visible: unique.length,
       baseUrl: this.getBaseUrl(),
     });
-    return visible.map(toChatInformation);
+    return unique.map(toChatInformation);
   }
 
   async provideLanguageModelChatResponse(
@@ -226,6 +229,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private async resolveApiKey(
     configuration: ProviderConfiguration | undefined,
     silent: boolean,
+    allowCached = true,
   ): Promise<string | undefined> {
     const configured = typeof configuration?.apiKey === "string" ? configuration.apiKey.trim() : "";
     if (configured.length > 0) {
@@ -239,7 +243,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       this.cachedApiKey = undefined;
     }
 
-    if (this.cachedApiKey) {
+    if (allowCached && this.cachedApiKey) {
       return this.cachedApiKey;
     }
 

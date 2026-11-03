@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Fix duplicate model entries in the model picker when the provider uses VS Code's native API key configuration.
+
 ## 0.1.0
 
 - Initial release.
