@@ -174,11 +174,19 @@ src/sse.ts         incremental SSE parser
 
 ### One-time setup
 
-**VS Code Marketplace**
+**VS Code Marketplace (Trusted Publishing)**
+
+No Personal Access Token is needed. The release workflow uses GitHub OIDC trusted publishing.
 
 1. Create a publisher at <https://marketplace.visualstudio.com/manage>.
-2. Create an Azure DevOps Personal Access Token with the **Marketplace → Manage** scope.
-3. Add it to your GitHub repository as the `VSCE_PAT` secret.
+2. Open the publisher and select **Trusted Publishing**.
+3. Create a policy:
+   - **Policy name**: `Release workflow`
+   - **Repository owner**: `Ashitaka-Laputa-IV`
+   - **Repository**: `OpenCode-Go-Provider-for-Github-Copilot`
+   - **Workflow**: `release.yml`
+   - **Environment**: leave empty
+4. Push a `v*` tag. The workflow exchanges a short-lived OIDC token for Marketplace credentials with `vsce publish --oidc`.
 
 **Open VSX (optional)**
 
@@ -201,9 +209,9 @@ If `OVSX_PAT` is not set, the release workflow skips Open VSX and still publishe
    git push --follow-tags
    ```
 
-3. The `Release` workflow runs `npm run check`, packages the VSIX, publishes to the Marketplace, publishes to Open VSX when configured, and creates a GitHub release with the VSIX attached.
+3. The `Release` workflow runs `npm run check`, packages the VSIX, publishes to the Marketplace with OIDC, publishes to Open VSX when configured, and creates a GitHub release with the VSIX attached.
 
-You can also publish manually:
+Local publishing with a PAT still works until Azure DevOps retires global PATs on December 1, 2026:
 
 ```bash
 npm run check
@@ -216,9 +224,9 @@ npx ovsx publish -p "$OVSX_PAT"   # optional
 
 | Secret | Purpose |
 | --- | --- |
-| `VSCE_PAT` | Marketplace publishing (required) |
 | `OVSX_PAT` | Open VSX publishing (optional) |
-| `GITHUB_TOKEN` | Automatic; used to create the GitHub release |
+| `GITHUB_TOKEN` | Automatic; used for the GitHub release |
+| — | Marketplace publishing uses OIDC and needs no secret |
 
 ## License
 
