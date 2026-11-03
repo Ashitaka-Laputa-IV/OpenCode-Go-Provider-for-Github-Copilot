@@ -2,7 +2,7 @@
   "name": "opencode-go-provider-for-copilot",
   "displayName": "OpenCode Go for GitHub Copilot",
   "description": "Use OpenCode Go models in GitHub Copilot Chat. Add the provider, paste your API key, and chat.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "Ashitaka",
   "license": "MIT",
   "icon": "assets/icon.png",

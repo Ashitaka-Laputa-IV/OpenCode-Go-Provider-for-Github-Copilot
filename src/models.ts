@@ -197,15 +197,22 @@ export interface TokenLimits {
  */
 export function resolveTokenLimits(model: OpenCodeModel, contextWindowOverride = 0): TokenLimits {
   const modelContext = Math.max(1, model.limit?.context ?? model.limit?.input ?? 128_000);
-  let maxOutputTokens = Math.max(1, model.limit?.output ?? Math.min(16_384, modelContext));
-  let maxInputTokens = model.limit?.input ?? Math.max(0, modelContext - maxOutputTokens);
+  let maxOutputTokens = Math.max(
+    1,
+    Math.min(model.limit?.output ?? Math.min(16_384, modelContext), modelContext - 1),
+  );
+  let maxInputTokens = model.limit?.input ?? Math.max(1, modelContext - maxOutputTokens);
+
+  // Some catalog entries list an input limit that, combined with the output
+  // limit, exceeds the context window. Prefer keeping the output limit and
+  // reducing the input budget so VS Code's "Max context" stays accurate.
+  if (maxInputTokens + maxOutputTokens > modelContext) {
+    maxInputTokens = Math.max(1, modelContext - maxOutputTokens);
+  }
 
   if (maxInputTokens < modelContext * 0.05) {
     maxInputTokens = Math.max(1, Math.floor(modelContext * 0.25));
     maxOutputTokens = Math.max(1, modelContext - maxInputTokens);
-  } else {
-    maxOutputTokens = Math.min(maxOutputTokens, Math.max(1, modelContext - maxInputTokens));
-    maxInputTokens = Math.min(maxInputTokens, Math.max(1, modelContext - maxOutputTokens));
   }
 
   const target =

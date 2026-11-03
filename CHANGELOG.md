@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Keep input and output budgets accurate for models whose catalog input limit plus output limit exceeds the context window (for example Step 5 Preview).
+
 ## 0.1.2
 
 - Fix the reported context window so VS Code shows the model's real context size instead of input + output exceeding it.

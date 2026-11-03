@@ -104,6 +104,19 @@ describe("model helpers", () => {
     expect(limits.maxOutputTokens).toBeGreaterThan(0);
   });
 
+  it("reduces an oversized input limit instead of the output limit", () => {
+    expect(
+      resolveTokenLimits({
+        id: "step",
+        limit: { context: 1_000_000, input: 1_000_000, output: 65_536 },
+      }),
+    ).toEqual({
+      maxInputTokens: 934_464,
+      maxOutputTokens: 65_536,
+      context: 1_000_000,
+    });
+  });
+
   it("formats token counts", () => {
     expect(formatTokenCount(999)).toBe("999");
     expect(formatTokenCount(1_048_576)).toBe("1M");
