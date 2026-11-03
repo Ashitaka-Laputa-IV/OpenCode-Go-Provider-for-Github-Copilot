@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Allow the proposed `chatProvider` API when publishing so the native per-model Thinking selector can ship through the Marketplace. Stable VS Code hides it unless proposed APIs are enabled for the extension.
+
 ## 0.1.8
 
 - Declare the `chatProvider` proposed API and expose a per-model **Thinking** option in VS Code's native model panel. Requires enabling proposed APIs for this extension.

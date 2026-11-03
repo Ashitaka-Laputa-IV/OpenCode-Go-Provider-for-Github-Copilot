@@ -33,7 +33,7 @@ jobs:
         run: npm run package -- --out "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix"
 
       - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish --packagePath "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix" --oidc
+        run: npx @vscode/vsce publish --packagePath "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix" --oidc --allow-proposed-apis chatProvider
 
       - name: Publish to Open VSX (optional)
         if: env.OVSX_TOKEN != ''
