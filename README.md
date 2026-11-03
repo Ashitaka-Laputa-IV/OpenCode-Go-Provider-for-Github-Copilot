@@ -180,11 +180,16 @@ src/sse.ts         incremental SSE parser
 2. Create an Azure DevOps Personal Access Token with the **Marketplace → Manage** scope.
 3. Add it to your GitHub repository as the `VSCE_PAT` secret.
 
-**Open VSX**
+**Open VSX (optional)**
 
-1. Sign in at <https://open-vsx.org> and create a namespace matching your publisher.
-2. Create an access token.
-3. Add it to your GitHub repository as the `OVSX_PAT` secret.
+Open VSX is only needed for VSCodium and other non-Marketplace clients. It requires an Eclipse Foundation account and a signed Publisher Agreement.
+
+1. Sign in at <https://open-vsx.org>, link your Eclipse account, and sign the Publisher Agreement.
+2. Create a namespace matching your publisher ID.
+3. Create an access token.
+4. Add it to your GitHub repository as the `OVSX_PAT` secret.
+
+If `OVSX_PAT` is not set, the release workflow skips Open VSX and still publishes to the Marketplace.
 
 ### Release
 
@@ -196,7 +201,7 @@ src/sse.ts         incremental SSE parser
    git push --follow-tags
    ```
 
-3. The `Release` workflow runs `npm run check`, packages the VSIX, publishes to both registries, and creates a GitHub release with the VSIX attached.
+3. The `Release` workflow runs `npm run check`, packages the VSIX, publishes to the Marketplace, publishes to Open VSX when configured, and creates a GitHub release with the VSIX attached.
 
 You can also publish manually:
 
@@ -204,15 +209,15 @@ You can also publish manually:
 npm run check
 npm run package
 npx @vscode/vsce publish -p "$VSCE_PAT"
-npx ovsx publish -p "$OVSX_PAT"
+npx ovsx publish -p "$OVSX_PAT"   # optional
 ```
 
 ### Workflow secrets
 
 | Secret | Purpose |
 | --- | --- |
-| `VSCE_PAT` | Marketplace publishing |
-| `OVSX_PAT` | Open VSX publishing |
+| `VSCE_PAT` | Marketplace publishing (required) |
+| `OVSX_PAT` | Open VSX publishing (optional) |
 | `GITHUB_TOKEN` | Automatic; used to create the GitHub release |
 
 ## License
