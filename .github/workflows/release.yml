@@ -30,16 +30,16 @@ jobs:
       - run: npm run check
 
       - name: Package VSIX
-        run: npm run package -- --out "opencode-go-copilot-${GITHUB_REF_NAME}.vsix"
+        run: npm run package -- --out "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix"
 
       - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish --packagePath "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" --oidc
+        run: npx @vscode/vsce publish --packagePath "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix" --oidc
 
       - name: Publish to Open VSX (optional)
         if: env.OVSX_TOKEN != ''
-        run: npx ovsx publish "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" -p "$OVSX_TOKEN"
+        run: npx ovsx publish "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix" -p "$OVSX_TOKEN"
 
       - name: Create GitHub release
-        run: gh release create "$GITHUB_REF_NAME" "opencode-go-copilot-${GITHUB_REF_NAME}.vsix" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "opencode-go-provider-for-copilot-${GITHUB_REF_NAME}.vsix" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

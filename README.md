@@ -36,7 +36,7 @@ This extension contributes an **OpenCode Go** language model provider, so it sho
 ```bash
 npm install
 npm run package
-code --install-extension opencode-go-copilot-0.1.0.vsix
+code --install-extension opencode-go-provider-for-copilot-0.1.0.vsix
 ```
 
 ## Setup
