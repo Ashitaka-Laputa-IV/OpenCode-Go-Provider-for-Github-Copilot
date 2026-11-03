@@ -46,6 +46,8 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   private readonly userAgent: string;
   private catalog: ModelCatalog | undefined;
+  private lastGoodCatalog: ModelCatalog | undefined;
+  private lastUpdateCheck = 0;
   private cachedApiKey: string | undefined;
   private readonly modelMetadata = new Map<string, OpenCodeModel>();
 
@@ -283,6 +285,27 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     }
   }
 
+  async checkForModelUpdates(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastUpdateCheck < 5 * 60 * 1000) {
+      return;
+    }
+    this.lastUpdateCheck = now;
+
+    const before = this.catalogSignature();
+    this.catalog = undefined;
+    const source = new vscode.CancellationTokenSource();
+    try {
+      await this.getCatalog(source.token);
+    } finally {
+      source.dispose();
+    }
+    if (this.catalogSignature() !== before) {
+      this.logger.info("model catalog changed, refreshing VS Code model list");
+      this.changeEmitter.fire();
+    }
+  }
+
   private async resolveApiKey(
     configuration: ProviderConfiguration | undefined,
     silent: boolean,
@@ -356,16 +379,29 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       const models = await fetchModelCatalog(baseUrl, this.userAgent, abort.signal);
       if (models.length > 0) {
         this.catalog = { models, fetchedAt: Date.now(), baseUrl };
+        this.lastGoodCatalog = this.catalog;
         this.logger.info("model catalog loaded", { count: models.length, baseUrl });
         return models;
       }
-      this.logger.warn("model catalog was empty, using fallback models");
+      this.logger.warn("model catalog was empty");
     } catch (error) {
-      this.logger.warn("model catalog request failed, using fallback models", {
+      this.logger.warn("model catalog request failed", {
         error: error instanceof Error ? error.message : String(error),
       });
     } finally {
       cancellation.dispose();
+    }
+
+    // Prefer the last catalog that actually worked. Go plan changes are picked
+    // up from the live endpoint; the hard-coded list is only a first-run
+    // offline fallback.
+    if (this.lastGoodCatalog && this.lastGoodCatalog.baseUrl === baseUrl) {
+      this.catalog = {
+        ...this.lastGoodCatalog,
+        fetchedAt: Date.now() - MODELS_CACHE_MS + 60_000,
+      };
+      this.logger.warn("using last known model catalog");
+      return this.lastGoodCatalog.models;
     }
 
     // Retry the live catalog soon, but avoid a 15 second stall on every model
@@ -376,6 +412,23 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
       baseUrl,
     };
     return [...FALLBACK_MODELS];
+  }
+
+  private catalogSignature(): string {
+    return (this.catalog?.models ?? [])
+      .map((model) =>
+        [
+          model.id,
+          model.name ?? "",
+          model.limit?.context ?? "",
+          model.limit?.input ?? "",
+          model.limit?.output ?? "",
+          model.capabilities?.tools?.supported ? "tools" : "",
+          (model.capabilities?.reasoning?.effort ?? []).join(","),
+          (model.modalities?.input ?? []).join(","),
+        ].join(":"),
+      )
+      .join("|");
   }
 
   private getBaseUrl(): string {
@@ -439,7 +492,9 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
 
     const supported = (reasoning.effort ?? []).map((effort) => effort.toLowerCase());
     if (supported.length === 0) {
-      return setting;
+      // The catalog did not advertise configurable effort levels. Do not send
+      // an unknown parameter to models that may reject it.
+      return undefined;
     }
     if (supported.includes(setting)) {
       return setting;

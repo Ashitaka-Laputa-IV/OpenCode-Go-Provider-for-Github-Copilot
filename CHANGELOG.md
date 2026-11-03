@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Refresh the live model catalog every 30 minutes and when the window regains focus, so Go plan model changes appear without reloading VS Code.
+- Reuse the last successful catalog when the network is unavailable instead of falling back to a stale hard-coded list.
+- Only send `reasoning_effort` when the live catalog advertises supported effort levels for that model.
+
 ## 0.1.3
 
 - Keep input and output budgets accurate for models whose catalog input limit plus output limit exceeds the context window (for example Step 5 Preview).

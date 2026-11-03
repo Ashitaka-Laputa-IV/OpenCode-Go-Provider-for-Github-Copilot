@@ -7,10 +7,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const logger = new Logger(channel);
   const version = String(context.extension.packageJSON.version ?? "0.0.0");
   const provider = new OpenCodeProvider(context, logger, version);
+  const catalogTimer = setInterval(() => void provider.checkForModelUpdates(), 30 * 60 * 1000);
 
   context.subscriptions.push(
     channel,
     provider,
+    { dispose: () => clearInterval(catalogTimer) },
+    vscode.window.onDidChangeWindowState((state) => {
+      if (state.focused) {
+        void provider.checkForModelUpdates();
+      }
+    }),
     vscode.lm.registerLanguageModelChatProvider(VENDOR, provider),
     vscode.commands.registerCommand("opencodeGo.setApiKey", () => provider.setApiKey()),
     vscode.commands.registerCommand("opencodeGo.clearApiKey", () => provider.clearApiKey()),

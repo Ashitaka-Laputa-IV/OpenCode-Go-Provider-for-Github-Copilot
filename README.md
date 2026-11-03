@@ -72,6 +72,8 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 - Free-tier models are hidden by default. They are restricted to the OpenCode client and usually return HTTP 403 from other clients. Enable `opencodeGo.includeFreeModels` to show them anyway.
 - Vision is advertised only for models that natively use the Chat Completions API. The gateway translates text between APIs, but image translation is not guaranteed for Anthropic/Gemini/Responses-native models.
 - Usage limits and model availability are controlled by your OpenCode plan.
+- The catalog is read at runtime. It is cached for 10 minutes, refreshed every 30 minutes and when the window regains focus, and can be refreshed immediately with **OpenCode Go: Refresh Models**. New or removed Go models do not require an extension update.
+- If the catalog endpoint is unreachable, the extension reuses the last successful catalog. The built-in fallback list is only used on a first run with no network.
 
 ## Settings
 
