@@ -148,6 +148,15 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     const { tools, toolChoice } = convertTools(options.tools, options.toolMode);
     const variant = this.variantConfig.get(model.id);
     const requestModelId = variant?.baseId ?? model.id;
+    const modelConfiguration = (
+      options as {
+        modelConfiguration?: { reasoningEffort?: unknown };
+      }
+    ).modelConfiguration;
+    const configuredEffort =
+      typeof modelConfiguration?.reasoningEffort === "string"
+        ? modelConfiguration.reasoningEffort
+        : undefined;
     const workspace = (vscode.workspace.workspaceFolders ?? [])
       .map((folder) => folder.uri.toString())
       .join("|");
@@ -182,7 +191,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
         modelOptions: this.requestModelOptions(
           requestModelId,
           options.modelOptions as Record<string, unknown> | undefined,
-          variant?.reasoningEffort,
+          variant?.reasoningEffort ?? configuredEffort,
         ),
         signal: abort.signal,
         onText: (text) => progress.report(new vscode.LanguageModelTextPart(text)),
@@ -593,7 +602,7 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
   }
 
   private includePickerPresets(): boolean {
-    return vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("pickerPresets", true);
+    return vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("pickerPresets", false);
   }
 
   private getContextWindowTokens(): number {
@@ -740,8 +749,8 @@ export class OpenCodeProvider implements vscode.LanguageModelChatProvider<vscode
     forcedEffort?: string,
   ): Record<string, unknown> {
     const merged = { ...(options ?? {}) };
-    const effort = forcedEffort ?? this.resolveReasoningEffort(modelId);
-    if (effort) {
+    const effort = (forcedEffort ?? this.resolveReasoningEffort(modelId))?.trim().toLowerCase();
+    if (effort && effort !== "auto") {
       merged.reasoning_effort = effort;
     }
     return merged;

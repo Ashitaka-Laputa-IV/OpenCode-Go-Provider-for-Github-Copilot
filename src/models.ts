@@ -146,6 +146,43 @@ export function resolveTokenLimits(model: OpenCodeModel, contextWindowOverride =
   };
 }
 
+export interface LanguageModelConfigurationSchema {
+  properties?: Record<string, Record<string, unknown>>;
+}
+
+function capitalize(value: string): string {
+  return value.length === 0 ? value : value[0].toUpperCase() + value.slice(1);
+}
+
+export function buildReasoningConfiguration(
+  model: OpenCodeModel,
+): LanguageModelConfigurationSchema | undefined {
+  if (model.capabilities?.reasoning?.supported !== true) {
+    return undefined;
+  }
+  const efforts = [
+    ...new Set((model.capabilities.reasoning.effort ?? []).map((effort) => effort.toLowerCase())),
+  ].filter((effort) => effort !== "auto");
+  if (efforts.length === 0) {
+    return undefined;
+  }
+
+  const values = ["auto", ...efforts];
+  return {
+    properties: {
+      reasoningEffort: {
+        type: "string",
+        title: "Thinking",
+        description: "Reasoning effort for this model",
+        enum: values,
+        enumItemLabels: values.map((value) => capitalize(value)),
+        default: "auto",
+        group: "navigation",
+      },
+    },
+  };
+}
+
 export interface ChatInformationVariant {
   readonly id: string;
   readonly name: string;
@@ -212,7 +249,9 @@ export function toChatInformation(
   const toolCalling = supportsToolCalling(model);
   const imageInput = supportsImageInput(model);
 
-  return {
+  const info: vscode.LanguageModelChatInformation & {
+    configurationSchema?: LanguageModelConfigurationSchema;
+  } = {
     id: variant?.id ?? model.id,
     name: variant?.name ?? model.name ?? model.id,
     family: model.family ?? model.canonical_id?.split("/")[0] ?? model.id,
@@ -226,4 +265,10 @@ export function toChatInformation(
       imageInput,
     },
   };
+
+  const configurationSchema = buildReasoningConfiguration(model);
+  if (configurationSchema) {
+    info.configurationSchema = configurationSchema;
+  }
+  return info;
 }

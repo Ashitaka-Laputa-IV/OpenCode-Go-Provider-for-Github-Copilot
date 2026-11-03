@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildModelPresets,
+  buildReasoningConfiguration,
   formatTokenCount,
   isFreeModel,
   resolveTokenLimits,
@@ -161,5 +162,27 @@ describe("model helpers", () => {
     expect(
       buildModelPresets({ id: "small", limit: { context: 128_000, output: 16_384 } }, 128_000),
     ).toEqual([]);
+  });
+
+  it("builds a native thinking selector for reasoning models", () => {
+    expect(
+      buildReasoningConfiguration({
+        id: "reasoning",
+        capabilities: { reasoning: { supported: true, effort: ["low", "high", "max"] } },
+      }),
+    ).toEqual({
+      properties: {
+        reasoningEffort: {
+          type: "string",
+          title: "Thinking",
+          description: "Reasoning effort for this model",
+          enum: ["auto", "low", "high", "max"],
+          enumItemLabels: ["Auto", "Low", "High", "Max"],
+          default: "auto",
+          group: "navigation",
+        },
+      },
+    });
+    expect(buildReasoningConfiguration({ id: "plain" })).toBeUndefined();
   });
 });

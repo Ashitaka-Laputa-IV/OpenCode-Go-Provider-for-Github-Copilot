@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8
+
+- Declare the `chatProvider` proposed API and expose a per-model **Thinking** option in VS Code's native model panel. Requires enabling proposed APIs for this extension.
+- Picker presets are now opt-in (`opencodeGo.pickerPresets` defaults to `false`).
+
 ## 0.1.7
 
 - Add **Compact** and **Deep Think** preset entries in the model picker. Each preset is a separate model row with its own context window and reasoning effort, because the stable VS Code API does not expose a per-model settings panel to third-party providers.

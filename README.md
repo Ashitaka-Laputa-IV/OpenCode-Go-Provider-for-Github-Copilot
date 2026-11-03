@@ -83,9 +83,29 @@ The list is fetched from `https://opencode.ai/inference/go/v1/models` and update
 | `opencodeGo.includeFreeModels` | `false` | Show free-tier models that are usually limited to the OpenCode client. |
 | `opencodeGo.contextWindowTokens` | `0` | Maximum context window (input + output) reported to VS Code. `0` uses each model's native window. |
 | `opencodeGo.reasoningEffort` | `auto` | Reasoning effort for models that support it: `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
-| `opencodeGo.pickerPresets` | `true` | Show **Compact** and **Deep Think** preset rows in the model picker. |
+| `opencodeGo.pickerPresets` | `false` | Show **Compact** and **Deep Think** preset rows in the model picker. |
 
 The stable VS Code provider API does not expose per-model context or reasoning controls to third-party extensions. Use the settings above, the preset rows, the commands below, or per-model overrides.
+
+### Native model panel controls (proposed API)
+
+The extension also declares the `chatProvider` proposed API so model-level **Thinking** options can appear in VS Code's native model panel (the gear/row action next to a model). This requires enabling proposed APIs for this extension.
+
+Add this to `~/.vscode/argv.json` and restart VS Code:
+
+```json
+{
+  "enable-proposed-api": ["ashitaka.opencode-go-provider-for-copilot"]
+}
+```
+
+Alternatively, launch VS Code with:
+
+```bash
+code --enable-proposed-api ashitaka.opencode-go-provider-for-copilot
+```
+
+On a normal stable install without the flag, the panel options stay hidden and the commands/per-model overrides still work.
 
 ### Picker presets
 
